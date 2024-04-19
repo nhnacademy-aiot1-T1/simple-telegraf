@@ -27,7 +27,7 @@ public abstract class BaseMeasurement {
     @Column(tag = true)
     private String element;
 
-    private long time; // to instant.
+    private Long time; // to instant.
 
     @Setter
     @Column(timestamp = true)
