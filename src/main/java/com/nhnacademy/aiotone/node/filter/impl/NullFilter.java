@@ -16,7 +16,7 @@ public class NullFilter implements MeasurementFilter {
 
     @Override
     public boolean isPassed(BaseMeasurement measurement) {
-        return (measurement != null && measurement.getTime() != null && measurement.getValue() != null);
+        return (measurement != null && measurement.getValue() != null);
     }
 
     static {
