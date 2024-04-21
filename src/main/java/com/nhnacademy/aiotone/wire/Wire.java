@@ -2,12 +2,12 @@ package com.nhnacademy.aiotone.wire;
 
 import lombok.Getter;
 
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Getter
 public class Wire <T> {
-    private final Queue<T> messageQue = new LinkedList<>();
+    private final BlockingQueue<T> messageQue = new LinkedBlockingQueue<>();
 
     public boolean isEmpty() {
         return messageQue.isEmpty();
