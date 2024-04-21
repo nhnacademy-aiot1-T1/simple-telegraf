@@ -23,7 +23,7 @@ public class PropertyUtils {
                 field.setAccessible(true);
                 field.set(object, properties.get(prefix + "." + field.getName()));
 
-            } catch (Exception ignore) {
+            } catch (NoSuchMethodException | IllegalAccessException ignore) {
             }
         }
     }
