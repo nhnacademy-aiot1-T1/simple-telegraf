@@ -6,9 +6,11 @@ import com.nhnacademy.aiotone.exception.MeasurementNotSupportedException;
 import com.nhnacademy.aiotone.measurement.BaseMeasurement;
 import com.nhnacademy.aiotone.measurement.Humidity;
 import com.nhnacademy.aiotone.measurement.Temperature;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 
+@Slf4j
 public class MqttUtils {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Map<String, String> TOPIC_DETAILS = Map.of("s", "site", "b", "branch", "p", "place", "d", "device", "e", "element");
@@ -36,7 +38,11 @@ public class MqttUtils {
         }
         sb.append(payload.replace("{", ""));
 
-        if (!SUPPORT_MEASUREMENT.containsKey(topics[MEASUREMENT_INDEX])) throw new MeasurementNotSupportedException();
+        if (!SUPPORT_MEASUREMENT.containsKey(topics[MEASUREMENT_INDEX])) {
+            log.error("지원하지 않는 measurement type이 들어왔습니다, topic을 확인해주세요.");
+
+            throw new MeasurementNotSupportedException();
+        }
 
         return (BaseMeasurement) objectMapper.readValue(sb.toString(), SUPPORT_MEASUREMENT.get(topics[MEASUREMENT_INDEX]));
     }
