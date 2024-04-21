@@ -6,7 +6,7 @@ import lombok.Getter;
 import java.util.Properties;
 
 @Getter
-public class MqttPublisherProperties {
+public class InfluxDbProperties {
     private static final String PREFIX = "influxdb";
 
     private String url;
@@ -14,7 +14,7 @@ public class MqttPublisherProperties {
     private String org;
     private String bucket;
 
-    public MqttPublisherProperties(Properties properties) {
+    public InfluxDbProperties(Properties properties) {
         PropertyUtils.insertProperties(properties, PREFIX, this);
     }
 }
