@@ -25,11 +25,8 @@ public class DefaultMqttSubscriberCallback implements MqttCallback {
         try {
             String payload = new String(message.getPayload());
 
-            BaseMeasurement measurement =  MqttUtils.toMeasurement(topic, payload);
-            measurement.setTimestamp();
-
             for (Wire<BaseMeasurement> wire : wires) {
-                wire.add(measurement);
+                wire.add(MqttUtils.toMeasurement(topic, payload));
             }
         }
         catch (Exception e) {
