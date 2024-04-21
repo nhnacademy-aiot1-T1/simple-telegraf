@@ -1,31 +1,29 @@
 package com.nhnacademy.aiotone.node.mqtt;
 
 import com.influxdb.client.InfluxDBClient;
-import com.influxdb.client.InfluxDBClientFactory;
 import com.influxdb.client.WriteApi;
 import com.influxdb.client.WriteOptions;
 import com.influxdb.client.domain.WritePrecision;
 import com.nhnacademy.aiotone.measurement.BaseMeasurement;
-import com.nhnacademy.aiotone.node.RunnableNode;
-import com.nhnacademy.aiotone.properties.MqttPublisherProperties;
+import com.nhnacademy.aiotone.node.BaseNode;
 import com.nhnacademy.aiotone.wire.Wire;
 import lombok.Getter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
-public class MqttPublisher extends RunnableNode {
+public class MqttPublisher extends BaseNode {
+    private static final int THREAD_COUNT = 3;
+
     private final InfluxDBClient influxDBClient;
     private final WriteApi api;
-    private final MqttPublisherProperties properties;
+    public final List<Thread> threadList = new ArrayList<>();
 
     private Wire<BaseMeasurement> wire;
 
-    public MqttPublisher(MqttPublisherProperties properties) {
-        this.properties = properties;
-
-        influxDBClient = InfluxDBClientFactory.create(properties.getUrl(),
-                properties.getToken().toCharArray(),
-                properties.getOrg(),
-                properties.getBucket());
+    public MqttPublisher(InfluxDBClient influxDBClient) {
+        this.influxDBClient = influxDBClient;
 
         WriteOptions writeOptions = WriteOptions.builder()
                 .batchSize(5_000)
@@ -36,16 +34,24 @@ public class MqttPublisher extends RunnableNode {
                 .build();
 
         api = influxDBClient.makeWriteApi(writeOptions);
+
+        for (int i = 0; i < THREAD_COUNT; ++i) {
+            Thread t = new Thread(() -> {
+
+                while (!Thread.currentThread().isInterrupted()) {
+
+                    if (wire != null && !wire.isEmpty()) {
+                        api.writeMeasurement(WritePrecision.S, wire.poll());
+                    }
+                }
+            });
+
+            t.start();
+            threadList.add(t);
+        }
     }
 
     public void wireIn(Wire<BaseMeasurement> wire) {
         this.wire = wire;
-    }
-
-    @Override
-    public void process() {
-        if (!wire.isEmpty()) {
-            api.writeMeasurement(WritePrecision.S, wire.poll());
-        }
     }
 }
