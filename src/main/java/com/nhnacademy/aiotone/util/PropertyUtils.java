@@ -18,7 +18,7 @@ public class PropertyUtils {
             if (Modifier.isStatic(field.getModifiers())) continue; // static field면 스킵합니다.
 
             try {
-                clazz.getMethod(getGetterMethodName(field.getName())); // getter method가 존재하면 값을 넣어준다,
+                clazz.getMethod(getGetterMethodName(field.getName())); // getter method가 존재하면 값을 넣어줍니다.
 
                 field.setAccessible(true);
                 field.set(object, properties.get(prefix + "." + field.getName()));
@@ -30,7 +30,6 @@ public class PropertyUtils {
 
     /**
      * fieldName을 기준으로 getter 함수 이름을 반환합니다.
-     *
      * ex) fieldName이 url일 경우 getUrl을 리턴
      */
     private static String getGetterMethodName(String fieldName) {
