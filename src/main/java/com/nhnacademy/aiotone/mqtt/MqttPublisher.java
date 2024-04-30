@@ -76,10 +76,12 @@ public class MqttPublisher {
                                     new DoorayMessageSenderImpl().send("influx DB 서버를 확인해주세요");
                                 }
 
-                                while (influxDBClient.ping()) {
+                                /**
+                                 * influx db 서버가 동작 중일 경우, 다시 한번 write를 시도합니다.
+                                 */
+                                if (influxDBClient.ping()) {
                                     try {
                                         influxDBClient.getWriteApiBlocking().writePoints(points);
-                                        break;
                                     } catch (InfluxException ignore) {
                                         log.error(influxException.getMessage());
                                     }
