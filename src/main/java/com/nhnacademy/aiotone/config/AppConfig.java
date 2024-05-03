@@ -4,10 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.influxdb.client.InfluxDBClient;
 import com.influxdb.client.InfluxDBClientFactory;
 import com.nhnacademy.aiotone.measurement.RawData;
-import com.nhnacademy.aiotone.mqtt.DefaultMqttSubscriberCallback;
 import com.nhnacademy.aiotone.properties.InfluxDbProperties;
-import lombok.RequiredArgsConstructor;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -15,11 +13,10 @@ import org.springframework.context.annotation.Configuration;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+@Slf4j
 @Configuration
-@RequiredArgsConstructor
-@ComponentScan(basePackages = "com.nhnacademy.aiotone.properties")
+@ComponentScan(basePackageClasses = com.nhnacademy.common.config.MessageSenderConfig.class)
 public class AppConfig {
-    private final InfluxDbProperties influxDbProperties;
 
     /**
      * producer - consumer 패턴에서 사용하는 중간 queue.
@@ -30,7 +27,7 @@ public class AppConfig {
     }
 
     @Bean
-    public InfluxDBClient influxDBClient() {
+    public InfluxDBClient influxDBClient(InfluxDbProperties influxDbProperties) {
         return InfluxDBClientFactory.create(
                 influxDbProperties.getUrl(),
                 influxDbProperties.getToken().toCharArray(),
@@ -40,12 +37,8 @@ public class AppConfig {
     }
 
     @Bean
-    public MqttCallback mqttCallback(BlockingQueue<RawData> queue, ObjectMapper mapper) {
-        return new DefaultMqttSubscriberCallback(queue, mapper);
-    }
-
-    @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
     }
+
 }
