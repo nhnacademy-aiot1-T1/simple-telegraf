@@ -5,11 +5,12 @@ import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import com.influxdb.exceptions.InfluxException;
 import com.nhnacademy.aiotone.measurement.RawData;
-import com.nhnacademy.common.notification.impl.DoorayMessageSenderImpl;
-import lombok.Getter;
+import com.nhnacademy.common.notification.MessageSender;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,36 +19,31 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 
-@Getter
 @Slf4j
 @Component
-public class MqttPublisher {
-    private static final int BATCH_SIZE = 256;
+@RequiredArgsConstructor
+public class InfluxDbWriter {
+    private static final int BATCH_SIZE = 1024;
     private static final int THREAD_COUNT = 2;
 
-    private final InfluxDBClient influxDBClient;
     private final ExecutorService executorService = Executors.newFixedThreadPool(THREAD_COUNT);
-
+    private final MessageSender messageSender;
+    private final InfluxDBClient influxDBClient;
     private final BlockingQueue<RawData> blockingQueue;
 
-    public MqttPublisher(InfluxDBClient influxDBClient, BlockingQueue<RawData> blockingQueue) {
-        this.influxDBClient = influxDBClient;
-        this.blockingQueue = blockingQueue;
-
+    @PostConstruct
+    public void start() {
         IntStream.range(0, THREAD_COUNT)
                 .forEach(i -> executorService.execute(() -> {
 
-                            List<Point> points = new ArrayList<>(BATCH_SIZE);
-
+                            List<Point> points = new ArrayList<>(BATCH_SIZE * 2);
                             try {
                                 while (!Thread.currentThread().isInterrupted()) {
                                     RawData raw = blockingQueue.take();
-                                    long start = System.currentTimeMillis();
-                                    points.clear();
 
                                     String[] topics = raw.getTopic().split("/");
                                     Instant time = Instant.ofEpochMilli(raw.getTime());
-                                    long interval = raw.getTime() / raw.getValues().length;
+                                    long intervalMilli = 1_000 / raw.getValues().length;
 
                                     for (int j = 0; j < raw.getValues().length; ++j) {
                                         Point point = Point.measurement("measurement")
@@ -58,22 +54,28 @@ public class MqttPublisher {
                                                 .addField("value", raw.getValues()[j])
                                                 .time(time, WritePrecision.MS);
 
-                                        time = time.plusMillis(interval);
+                                        time = time.plusMillis(intervalMilli);
                                         points.add(point);
                                     }
 
+                                    if (points.size() >= BATCH_SIZE) {
+                                        influxDBClient.getWriteApiBlocking().writePoints(points);
+                                        log.info("Write Data point into specified bucket.");
 
-                                    influxDBClient.getWriteApiBlocking().writePoints(points);
-                                    long end = System.currentTimeMillis();
-
-                                    log.info("{} 밀리초가 경과 되었습니다.", end - start);
+                                        points.clear();
+                                    }
                                 }
 
                             } catch (InfluxException influxException) {
                                 if (!influxDBClient.ping()) {
-                                    Thread.currentThread().interrupt();
+                                    messageSender.send("influx DB 서버를 확인해주세요");
+                                    log.error(influxException.getMessage());
 
-                                    new DoorayMessageSenderImpl().send("influx DB 서버를 확인해주세요");
+                                    try {
+                                        Thread.currentThread().wait(180_000);
+                                    } catch (InterruptedException e) {
+                                        throw new RuntimeException(e);
+                                    }
                                 }
 
                                 /**
@@ -88,11 +90,10 @@ public class MqttPublisher {
                                 }
 
                             } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
+                                messageSender.send("Data를 가지고 오는 과정에서 문제가 생겨 thread가 종료되었습니다 : " + e.getMessage());
                                 log.error(e.getMessage());
                             }
                         })
                 );
     }
 }
-
