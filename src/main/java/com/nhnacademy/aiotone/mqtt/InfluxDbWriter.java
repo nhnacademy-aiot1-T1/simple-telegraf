@@ -38,23 +38,23 @@ public class InfluxDbWriter {
 
                             List<Point> points = new ArrayList<>(BATCH_SIZE * 2);
                             try {
+
                                 while (!Thread.currentThread().isInterrupted()) {
                                     RawData raw = blockingQueue.take();
 
                                     String[] topics = raw.getTopic().split("/");
                                     Instant time = Instant.ofEpochMilli(raw.getTime());
-                                    long intervalMilli = 1_000 / raw.getValues().length;
+                                    long intervalNanoSec = 1_000_000_000 / raw.getValues().length;
 
-                                    for (int j = 0; j < raw.getValues().length; ++j) {
-                                        Point point = Point.measurement("measurement")
-                                                .addTag("domain", topics[2])
-                                                .addTag("factory", topics[4])
+                                    for (double value : raw.getValues()) {
+                                        Point point = Point.measurement("rawData")
                                                 .addTag("gateway", topics[6])
-                                                .addTag("channel", topics[8])
-                                                .addField("value", raw.getValues()[j])
-                                                .time(time, WritePrecision.MS);
+                                                .addTag("motor", topics[8])
+                                                .addTag("channel", topics[10])
+                                                .addField("value", value)
+                                                .time(time, WritePrecision.NS);
 
-                                        time = time.plusMillis(intervalMilli);
+                                        time = time.plusMillis(intervalNanoSec);
                                         points.add(point);
                                     }
 
@@ -67,31 +67,34 @@ public class InfluxDbWriter {
                                 }
 
                             } catch (InfluxException influxException) {
+
+                                // influx db 서버가 동작 중일 경우, 30초 대기 후 다시 write를 시도합니다, 만약 30초 대기 후에도 ping이 false일 경우 알림을 주고 앱을 종료 합니다.
                                 if (!influxDBClient.ping()) {
-                                    messageSender.send("influx DB 서버를 확인해주세요");
-                                    log.error(influxException.getMessage());
 
                                     try {
-                                        Thread.currentThread().wait(180_000);
+                                        Thread.sleep(30_000);
+
                                     } catch (InterruptedException e) {
-                                        throw new RuntimeException(e);
+                                        log.error(e.getMessage());
+                                        Thread.currentThread().interrupt();
                                     }
                                 }
 
-                                /**
-                                 * influx db 서버가 동작 중일 경우, 다시 한번 write를 시도합니다.
-                                 */
                                 if (influxDBClient.ping()) {
                                     try {
                                         influxDBClient.getWriteApiBlocking().writePoints(points);
                                     } catch (InfluxException ignore) {
-                                        log.error(influxException.getMessage());
+                                        log.error("다시 DB에 write를 시도 했으나 실패했습니다 : {}", influxException.getMessage());
                                     }
+                                }
+                                else {
+                                    messageSender.send("influx db 서버를 확인해주세요.");
+                                    Thread.currentThread().interrupt();
                                 }
 
                             } catch (InterruptedException e) {
-                                messageSender.send("Data를 가지고 오는 과정에서 문제가 생겨 thread가 종료되었습니다 : " + e.getMessage());
                                 log.error(e.getMessage());
+                                Thread.currentThread().interrupt();
                             }
                         })
                 );
