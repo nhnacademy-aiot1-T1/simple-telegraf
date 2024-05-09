@@ -17,12 +17,14 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class InfluxDbWriter {
+    private static final int RETRY_INTERVAL_MILLI = 30_000; // 30초.
     private static final int BATCH_SIZE = 1024;
     private static final int THREAD_COUNT = 2;
 
@@ -44,7 +46,7 @@ public class InfluxDbWriter {
 
                                     String[] topics = raw.getTopic().split("/");
                                     Instant time = Instant.ofEpochMilli(raw.getTime());
-                                    long intervalNanoSec = 1_000_000_000 / raw.getValues().length;
+                                    long intervalNanoSec = TimeUnit.SECONDS.toNanos(1) / raw.getValues().length;
 
                                     for (double value : raw.getValues()) {
                                         Point point = Point.measurement("rawData")
@@ -72,7 +74,7 @@ public class InfluxDbWriter {
                                 if (!influxDBClient.ping()) {
 
                                     try {
-                                        Thread.sleep(30_000);
+                                        Thread.sleep(RETRY_INTERVAL_MILLI);
 
                                     } catch (InterruptedException e) {
                                         log.error(e.getMessage());
