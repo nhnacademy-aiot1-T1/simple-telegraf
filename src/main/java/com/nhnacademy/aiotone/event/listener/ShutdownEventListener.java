@@ -3,6 +3,7 @@ package com.nhnacademy.aiotone.event.listener;
 import com.nhnacademy.common.notification.MessageSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ import java.time.Instant;
 @RequiredArgsConstructor
 @Component
 @Slf4j
+@ConditionalOnProperty(value = "spring.profiles.active", havingValue = "prod")
 public class ShutdownEventListener implements ApplicationListener<ContextClosedEvent> {
     private final StringBuilder sb = new StringBuilder();
     private final MessageSender messageSender;
