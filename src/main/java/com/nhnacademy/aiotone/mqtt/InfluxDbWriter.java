@@ -76,22 +76,21 @@ public class InfluxDbWriter {
                                     try {
                                         Thread.sleep(RETRY_INTERVAL_MILLI);
 
+                                        if (!influxDBClient.ping()) {
+                                            messageSender.send("influx db 서버를 확인해주세요.");
+                                            Thread.currentThread().interrupt();
+                                        }
+
                                     } catch (InterruptedException e) {
                                         log.error(e.getMessage());
                                         Thread.currentThread().interrupt();
                                     }
                                 }
 
-                                if (influxDBClient.ping()) {
-                                    try {
-                                        influxDBClient.getWriteApiBlocking().writePoints(points);
-                                    } catch (InfluxException ignore) {
-                                        log.error("다시 DB에 write를 시도 했으나 실패했습니다 : {}", influxException.getMessage());
-                                    }
-                                }
-                                else {
-                                    messageSender.send("influx db 서버를 확인해주세요.");
-                                    Thread.currentThread().interrupt();
+                                try {
+                                    influxDBClient.getWriteApiBlocking().writePoints(points);
+                                } catch (InfluxException ignore) {
+                                    log.error("다시 DB에 write를 시도 했으나 실패했습니다 : {}", influxException.getMessage());
                                 }
 
                             } catch (InterruptedException e) {
