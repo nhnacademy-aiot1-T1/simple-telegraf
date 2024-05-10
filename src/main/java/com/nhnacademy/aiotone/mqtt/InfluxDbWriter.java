@@ -70,7 +70,7 @@ public class InfluxDbWriter {
 
                             } catch (InfluxException influxException) {
 
-                                // influx db 서버가 동작 중일 경우, 30초 대기 후 다시 write를 시도합니다, 만약 30초 대기 후에도 ping이 false일 경우 알림을 주고 앱을 종료 합니다.
+                                // influx db 서버가 동작 중일 경우, 30초 대기 후 다시 write를 시도합니다, 만약 30초 대기 후에도 ping이 false일 경우 알림을 주고 쓰레드를 종료 합니다.
                                 if (!influxDBClient.ping()) {
 
                                     try {
