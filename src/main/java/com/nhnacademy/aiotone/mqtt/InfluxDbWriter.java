@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -38,14 +37,13 @@ public class InfluxDbWriter {
         IntStream.range(0, THREAD_COUNT)
                 .forEach(i -> executorService.execute(() -> {
 
-                            List<Point> points = new ArrayList<>(BATCH_SIZE * 2);
+                            List<Point> points = new ArrayList<>(BATCH_SIZE);
                             try {
 
                                 while (!Thread.currentThread().isInterrupted()) {
                                     RawData raw = blockingQueue.take();
-
                                     String[] topics = raw.getTopic().split("/");
-                                    Instant time = Instant.ofEpochMilli(raw.getTime());
+                                    long time = TimeUnit.MILLISECONDS.toNanos(raw.getTime());
                                     long intervalNanoSec = TimeUnit.SECONDS.toNanos(1) / raw.getValues().length;
 
                                     for (double value : raw.getValues()) {
@@ -56,7 +54,7 @@ public class InfluxDbWriter {
                                                 .addField("value", value)
                                                 .time(time, WritePrecision.NS);
 
-                                        time = time.plusMillis(intervalNanoSec);
+                                        time += intervalNanoSec;
                                         points.add(point);
                                     }
 
