@@ -1,22 +1,18 @@
 package com.nhnacademy.aiotone.mqtt;
 
 import com.influxdb.client.InfluxDBClient;
-import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import com.influxdb.exceptions.InfluxException;
-import com.nhnacademy.aiotone.measurement.RawData;
 import com.nhnacademy.common.notification.MessageSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -24,46 +20,25 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class InfluxDbWriter {
     private static final int RETRY_INTERVAL_MILLI = 30_000; // 30초.
-    private static final int BATCH_SIZE = 1024;
     private static final int THREAD_COUNT = 2;
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(THREAD_COUNT);
     private final MessageSender messageSender;
     private final InfluxDBClient influxDBClient;
-    private final BlockingQueue<RawData> blockingQueue;
+    private final BlockingQueue<List<Point>> blockingQueue;
 
     @PostConstruct
     public void start() {
         IntStream.range(0, THREAD_COUNT)
                 .forEach(i -> executorService.execute(() -> {
 
-                            List<Point> points = new ArrayList<>(BATCH_SIZE);
+                    List<Point> points = null;
                             try {
-
                                 while (!Thread.currentThread().isInterrupted()) {
-                                    RawData raw = blockingQueue.take();
-                                    String[] topics = raw.getTopic().split("/");
-                                    long time = TimeUnit.MILLISECONDS.toNanos(raw.getTime());
-                                    long intervalNanoSec = TimeUnit.SECONDS.toNanos(1) / raw.getValues().length;
+                                    points = blockingQueue.take();
 
-                                    for (double value : raw.getValues()) {
-                                        Point point = Point.measurement("rawData")
-                                                .addTag("gateway", topics[6])
-                                                .addTag("motor", topics[8])
-                                                .addTag("channel", topics[10])
-                                                .addField("value", value)
-                                                .time(time, WritePrecision.NS);
-
-                                        time += intervalNanoSec;
-                                        points.add(point);
-                                    }
-
-                                    if (points.size() >= BATCH_SIZE) {
-                                        influxDBClient.getWriteApiBlocking().writePoints(points);
-                                        log.info("Write Data point into specified bucket.");
-
-                                        points.clear();
-                                    }
+                                    influxDBClient.getWriteApiBlocking().writePoints(points);
+                                    log.info("write points");
                                 }
 
                             } catch (InfluxException influxException) {
