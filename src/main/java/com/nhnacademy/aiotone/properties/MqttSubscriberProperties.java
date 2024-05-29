@@ -11,6 +11,6 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "mqtt")
 public class MqttSubscriberProperties {
     private String url;
-    private String topics;
+    private String[] topics;
     private String clientId;
 }
