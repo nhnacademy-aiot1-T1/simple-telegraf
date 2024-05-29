@@ -23,6 +23,6 @@ public class MqttSubscriber extends MqttClient {
     @PostConstruct
     public void start() throws MqttException {
         this.connect();
-        this.subscribe(properties.getTopics().split(","));
+        this.subscribe(properties.getTopics());
     }
 }
