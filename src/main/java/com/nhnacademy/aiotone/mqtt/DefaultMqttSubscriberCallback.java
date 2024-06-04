@@ -1,7 +1,10 @@
 package com.nhnacademy.aiotone.mqtt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nhnacademy.aiotone.entity.MotorStatus;
 import com.nhnacademy.aiotone.measurement.RawData;
+import com.nhnacademy.aiotone.service.MotorStatusService;
+import com.nhnacademy.aiotone.util.MqttUtils;
 import com.nhnacademy.common.notification.MessageSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,23 +19,36 @@ import java.util.concurrent.BlockingQueue;
 @Component
 @RequiredArgsConstructor
 public class DefaultMqttSubscriberCallback implements MqttCallback {
+    private static final String STATUS_PREFIX = "status";
+
     private final BlockingQueue<RawData> blockingQueue;
     private final MessageSender messageSender;
     private final ObjectMapper objectMapper;
+    private final MotorStatusService motorStatusService;
 
     @Override
     public void connectionLost(Throwable cause) {
-        messageSender.send("mqtt subscriber connection lost : " + cause.getMessage());
+        String message = "mqtt subscriber connection lost";
 
-        log.error(cause.getMessage());
+        messageSender.send(message);
+        log.error(message);
     }
 
     @Override
     public void messageArrived(String topic, MqttMessage message) {
         try {
-            RawData rawData = objectMapper.readValue(message.getPayload(), RawData.class);
-            rawData.setTopic(topic);
+            String jsonString = MqttUtils.toJsonString(topic, message.toString());
 
+            if (topic.startsWith(STATUS_PREFIX)) {
+                MotorStatus status = objectMapper.readValue(jsonString, MotorStatus.class);
+                log.warn(jsonString);
+
+                motorStatusService.save(status);
+
+                return;
+            }
+
+            RawData rawData = objectMapper.readValue(jsonString, RawData.class);
             blockingQueue.put(rawData);
         }
         catch (Exception e) {
